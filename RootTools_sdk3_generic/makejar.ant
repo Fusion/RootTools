@@ -1,0 +1,16 @@
+<project name="dateslider" basedir="." default="jar">
+	<target name="jar">
+	    <jar
+		destfile="roottools.jar"
+		basedir="bin/classes/"
+		includes="com/**"
+	    />
+	</target>
+        <target name="zip" depends="jar">
+            <zip
+		destfile="roottools.zip"
+		basedir=".">
+                <include name="roottools.jar" />
+            </zip>
+        </target>
+</project>
