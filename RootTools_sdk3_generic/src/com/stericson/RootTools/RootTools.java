@@ -62,7 +62,7 @@ public class RootTools {
     public static List<String> lastFoundBinaryPaths = new ArrayList<String>();
     public static int lastExitCode;
     public static String utilPath;
-    
+
     /**
      * You can use this to force sendshell to use a shell other than the deafult.
      */
@@ -408,57 +408,85 @@ public class RootTools {
 
     /**
      * Copys a file to a destination. Because cp is not available on all android devices, we have a
-     * fallback on the dd command
+     * fallback on the cat command
      * 
-     * @param sourcePath
-     * @param destinationPath
+     * @param source
+     *            example: /data/data/org.adaway/files/hosts
+     * @param destination
+     *            example: /system/etc/hosts
+     * @param remountAsRw
+     *            remounts the destination as read/write before writing to it
+     * @param preserveFileAttributes
+     *            tries to copy file attributes from source to destination, if only cat is available
+     *            only permissions are preserved
      * @return true if it was successfully copied
      */
-    public static boolean copyFile(String sourcePath, String destinationPath) {
-        // check if busybox or toolbox binary cp is available and linked
+    public static boolean copyFile(String source, String destination, boolean remountAsRw,
+            boolean preserveFileAttributes) {
+        boolean result = true;
+
         try {
-            // try to find and fix cp binary
-            if (!fixUtils(new String[] { "cp" })) {
-                return false;
+            // mount destination as rw before writing to it
+            if (remountAsRw) {
+                remount(destination, "RW");
             }
 
             // if cp is available and has appropriate permissions
             if (checkUtil("cp")) {
                 log("cp command is available!");
-                sendShell("cp -f " + sourcePath + " " + destinationPath, InternalVariables.timeout);
-                return true;
-            } else { // if cp is not available use cat
 
-                // try to find and fix cat binary
-                if (!fixUtils(new String[] { "cat" })) {
-                    return false;
-                }
-
-                // if cat is available and has appropriate permissions
-                if (checkUtil("cat")) {
-                    log("cp is not available, use cat!");
-
-                    // get old permissions before overwriting
-                    Permissions permissions = getFilePermissionsSymlinks(destinationPath);
-                    int filePermission = permissions.permissions;
-
-                    // copy with cat
-                    sendShell("cat " + sourcePath + " > " + destinationPath,
-                            InternalVariables.timeout);
-
-                    // set back old permission
-                    sendShell("chmod " + filePermission + " " + destinationPath,
-                            InternalVariables.timeout);
-
-                    return true;
+                if (preserveFileAttributes) {
+                    sendShell("cp -fp " + source + " " + destination, InternalVariables.timeout);
                 } else {
-                    return false;
+                    sendShell("cp -f " + source + " " + destination, InternalVariables.timeout);
                 }
+            } else {
+                if (checkUtil("busybox") && hasUtil("cp", "busybox")) {
+                    log("busybox cp command is available!");
+
+                    if (preserveFileAttributes) {
+                        sendShell("busybox cp -fp " + source + " " + destination,
+                                InternalVariables.timeout);
+                    } else {
+                        sendShell("busybox cp -f " + source + " " + destination,
+                                InternalVariables.timeout);
+                    }
+                } else { // if cp is not available use cat
+                    // if cat is available and has appropriate permissions
+                    if (checkUtil("cat")) {
+                        log("cp is not available, use cat!");
+
+                        int filePermission = -1;
+                        if (preserveFileAttributes) {
+                            // get permissions of source before overwriting
+                            Permissions permissions = getFilePermissionsSymlinks(source);
+                            filePermission = permissions.permissions;
+                        }
+
+                        // copy with cat
+                        sendShell("cat " + source + " > " + destination, InternalVariables.timeout);
+
+                        if (preserveFileAttributes) {
+                            // set premissions of source to destination
+                            sendShell("chmod " + filePermission + " " + destination,
+                                    InternalVariables.timeout);
+                        }
+                    } else {
+                        result = false;
+                    }
+                }
+            }
+
+            // mount destination back to ro
+            if (remountAsRw) {
+                remount(destination, "RO");
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return false;
+            result = false;
         }
+
+        return result;
     }
 
     /**
