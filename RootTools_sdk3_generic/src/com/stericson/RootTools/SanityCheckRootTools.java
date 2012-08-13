@@ -46,6 +46,8 @@ public class SanityCheckRootTools extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+    	RootTools.debugMode = true;
+
         mTextView = new TextView(this);
         mTextView.setText("");
         mScrollView = new ScrollView(this);
@@ -111,6 +113,107 @@ public class SanityCheckRootTools extends Activity {
             }
             */
 
+            try
+			{
+				Shell.startRootShell();
+			}
+			catch (IOException e2)
+			{
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+			
+            boolean result;
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing Find Binary");
+            result = RootTools.isRootAvailable();
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking Root ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, result + " k\n\n");
+            
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing file exists");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking Exists() ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.exists("/system/sbin/[") + " k\n\n");
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing Is Access Given");
+            result = RootTools.isAccessGiven();
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking for Access to Root ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, result + " k\n\n");
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing Remount");
+            result = RootTools.remount("/system", "rw");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Remounting System as RW ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, result + " k\n\n");
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing CheckUtil");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking busybox is setup ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.checkUtil("busybox") + " k\n\n");
+            
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getBusyBoxVersion");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking busybox version ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.getBusyBoxVersion() + " k\n\n");
+
+            try
+			{
+                visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing fixUtils");
+                visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking Utils ]\n");
+                visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.fixUtils(new String[] {"ls", "rm", "ln", "dd", "chmod", "mount"}) + " k\n\n");
+			}
+			catch (Exception e2)
+			{
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+			
+            try
+			{
+                visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getSymlink");
+                visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking [[ for symlink ]\n");
+                visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.getSymlink("/system/bin/[[") + " k\n\n");
+			}
+			catch (Exception e2)
+			{
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getInode");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking Inodes ]\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.getInode("/system/bin/busybox") + " k\n\n");
+            
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing GetBusyBoxapplets");
+            try
+			{
+				RootTools.getBusyBoxApplets();
+			}
+			catch (Exception e1)
+			{
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Getting all available Busybox applets ]\n");
+            for (String applet : InternalVariables.results)
+            {
+                visualUpdate(TestHandler.ACTION_DISPLAY,  applet + " k\n\n");            	
+            }
+
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getFilePermissionsSymlinks");
+            Permissions permissions = RootTools.getFilePermissionsSymlinks("/system/bin/busybox");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking busybox permissions and symlink ]\n");
+            
+            if (permissions != null)
+            {
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Symlink: " + permissions.getSymlink() + " k\n\n");
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Group Permissions: " + permissions.getGroupPermissions() + " k\n\n");
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Owner Permissions: " + permissions.getOtherPermissions() + " k\n\n");
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Permissions: " + permissions.getPermissions() + " k\n\n");
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Type: " + permissions.getType() + " k\n\n");
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "User Permissions: " + permissions.getUserPermissions() + " k\n\n");
+            }
+            else
+            {
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "Permissions == null k\n\n");
+            }
+            
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing df");
             long spaceValue = RootTools.getSpace("/data");
             visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking /data partition size]\n");
@@ -137,7 +240,7 @@ public class SanityCheckRootTools extends Activity {
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing sendShell() w/ callbacks");
             try {
                 visualUpdate(TestHandler.ACTION_DISPLAY, "\n[ Listing of / (callback)]\n");
-                RootTools.Result result = new RootTools.Result() {
+                RootTools.Result result2 = new RootTools.Result() {
                     @Override
                     public void process(String line) throws Exception {
                         visualUpdate(TestHandler.ACTION_DISPLAY, line + "\n");
@@ -159,8 +262,8 @@ public class SanityCheckRootTools extends Activity {
                         visualUpdate(TestHandler.ACTION_DISPLAY, line + "\n");						
 					}
                 };
-                RootTools.sendShell("ls /", result, InternalVariables.timeout);
-                if (0 != result.getError())
+                RootTools.sendShell("ls /", result2, InternalVariables.timeout);
+                if (0 != result2.getError())
                     return;
             } catch (IOException e) {
                 visualUpdate(TestHandler.ACTION_HIDE, "ERROR: " + e);
@@ -176,7 +279,7 @@ public class SanityCheckRootTools extends Activity {
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing sendShell() for multiple commands");
             try {
                 visualUpdate(TestHandler.ACTION_DISPLAY, "\n[ ps + ls + date / (callback)]\n");
-                RootTools.Result result = new RootTools.Result() {
+                RootTools.Result result2 = new RootTools.Result() {
                     @Override
                     public void process(String line) throws Exception {
                         visualUpdate(TestHandler.ACTION_DISPLAY, line + "\n");
@@ -207,11 +310,11 @@ public class SanityCheckRootTools extends Activity {
                                 "ls",
                                 "echo \"* DATE:\"",
                                 "date"},
-                        2000,
-                        result,
+                        0,
+                        result2,
                         InternalVariables.timeout
                 );
-                if (0 != result.getError())
+                if (0 != result2.getError())
                     return;
             } catch (IOException e) {
                 visualUpdate(TestHandler.ACTION_HIDE, "ERROR: " + e);
@@ -224,6 +327,16 @@ public class SanityCheckRootTools extends Activity {
 
             visualUpdate(TestHandler.ACTION_PDISPLAY, "All tests complete.");
             visualUpdate(TestHandler.ACTION_HIDE, null);
+            
+            try
+			{
+				RootTools.closeAllShells();
+			}
+			catch (IOException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
 
         private void visualUpdate(int action, String text) {

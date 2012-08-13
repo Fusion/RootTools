@@ -143,7 +143,9 @@ class Installer {
             }
 
             try {
-				RootTools.sendShell(new String[] { "chmod " + mode + " " + filesPath + File.separator + destName }, 0, -1);
+            	CommandCapture command = new CommandCapture(0, "chmod " + mode + " " + filesPath + File.separator + destName);
+            	Shell.startRootShell().add(command);
+            	command.waitForFinish();
 			} catch (Exception e) {}
         }
         return true;

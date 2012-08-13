@@ -26,11 +26,8 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
 import com.stericson.RootTools.RootTools.Result;
@@ -67,12 +64,11 @@ class Executer {
 	 * @throws IOException
 	 * @throws TimeoutException 
 	 */
-	List<String> sendShell(String[] commands, int sleepTime,
+	synchronized List<String> sendShell(String[] commands, int sleepTime,
 			Result result, boolean useRoot, int timeout) throws IOException,
 			RootToolsException, TimeoutException {
 
-		RootTools.log(InternalVariables.TAG, "Sending " + commands.length
-				+ " shell command" + (commands.length > 1 ? "s" : ""));
+		RootTools.log("Sending " + commands.length + " shell command" + (commands.length > 1 ? "s" : ""));
 
         Worker worker = new Worker(this, commands, sleepTime, result, useRoot);
         worker.start();
@@ -183,31 +179,6 @@ class Executer {
 						} else {
 							executer.result.process(line);
 						}
-
-						if (commands[0].equals("id")) {
-		                    Set<String> ID = new HashSet<String>(Arrays.asList(line.split(" ")));
-		                    for (String id : ID) {
-		                        if (id.toLowerCase().contains("uid=0")) {
-		                            InternalVariables.accessGiven = true;
-		                            RootTools.log(InternalVariables.TAG, "Access Given");
-		                            break;
-		                        }
-		                    }
-		                    if (!InternalVariables.accessGiven) {
-		                        RootTools.log(InternalVariables.TAG, "Access Denied?");
-		                    }		                    
-		                }
-		                if (commands[0].equals("busybox")) {
-		                    if (line.startsWith("BusyBox")) {
-		                        String[] temp = line.split(" ");
-		                        InternalVariables.busyboxVersion = temp[1];
-		                    }
-		                }
-		                if (commands[0].startsWith("df")) {
-		                    if (line.contains(commands[0].substring(2, commands[0].length()).trim())) {
-		                        InternalVariables.space = line.split(" ");
-		                    }
-		                }
 		                
 						RootTools.log("input stream: " + line);
 						
@@ -302,7 +273,7 @@ class Executer {
     		try {
     			//if this fails, ignore it and dont crash.
     			this.process.destroy();
-    		} catch (Exception e) {}
+    		} catch (Exception ignore) {}
     		this.process = null;
     	}
 
