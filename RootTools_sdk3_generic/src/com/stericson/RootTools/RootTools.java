@@ -229,10 +229,20 @@ public class RootTools {
     }
     
     /**
+     * @param binaryName
+     *				String that represents the path to the Busybox binary you want to retrieve the version of.
+     *            
+     * @return BusyBox version is found, "" if not found.
+     */
+    public static String getBusyBoxVersion(String path) {
+        return InternalMethods.getBusyBoxVersion(path);
+    }
+
+    /**
      * @return BusyBox version is found, "" if not found.
      */
     public static String getBusyBoxVersion() {
-        return InternalMethods.getBusyBoxVersion();
+        return RootTools.getBusyBoxVersion("");
     }
 
     /**
@@ -241,11 +251,29 @@ public class RootTools {
      * 
      * @return <code>List<String></code> a List of strings representing the applets available from
      *         Busybox.
-     * @throws Exception
-     *             if we cannot return the applets available.
+     *         
+     * @return <code>null</code> If we cannot return the list of applets.
+     * 
      */
     public static List<String> getBusyBoxApplets() throws Exception {
-        return InternalMethods.getBusyBoxApplets();
+        return RootTools.getBusyBoxApplets("");
+    }
+    
+    /**
+     * This will return an List of Strings. Each string represents an applet available from BusyBox.
+     * <p/>
+     * 
+     * @param path
+     *				Path to the busybox binary that you want the list of applets from.
+     *
+     * @return <code>List<String></code> a List of strings representing the applets available from
+     *         Busybox.
+     *         
+     * @return <code>null</code> If we cannot return the list of applets.
+     * 
+     */
+    public static List<String> getBusyBoxApplets(String path) throws Exception {
+        return InternalMethods.getBusyBoxApplets(path);
     }
     
     /**
@@ -256,9 +284,10 @@ public class RootTools {
      * 				a <code>String</code> to Indicate the path to the shell that you want to open.
      * 
      * @throws	IOException 
+     * @throws TimeoutException 
      *  
      */
-    public static Shell getCustomShell(String shellPath) throws IOException
+    public static Shell getCustomShell(String shellPath) throws IOException, TimeoutException
     {
     	return Shell.startCustomShell(shellPath);
     }
@@ -336,9 +365,10 @@ public class RootTools {
      * 				a <code>boolean</code> to Indicate whether or not you want to open a root shell or a standard shell
      * 
      * @throws	IOException 
+     * @throws TimeoutException 
      *  
      */
-    public static Shell getShell(boolean root) throws IOException
+    public static Shell getShell(boolean root) throws IOException, TimeoutException
     {
     	if (root)
     		return Shell.startRootShell();
@@ -470,11 +500,25 @@ public class RootTools {
      * <p/>
      * 
      * @param <code>String</code> The applet to check for.
+     * @param path
+     *				Path to the busybox binary that you want to check. (do not include binary name)
+     * 
+     * @return <code>true</code> if applet is available, false otherwise.
+     */
+    public static boolean isAppletAvailable(String Applet, String path) {
+        return InternalMethods.isAppletAvailable(Applet, path);
+    }
+
+    /**
+     * This will let you know if an applet is available from BusyBox
+     * <p/>
+     * 
+     * @param <code>String</code> The applet to check for.
      * 
      * @return <code>true</code> if applet is available, false otherwise.
      */
     public static boolean isAppletAvailable(String Applet) {
-        return InternalMethods.isAppletAvailable(Applet);
+        return RootTools.isAppletAvailable(Applet, "");
     }
 
     /**

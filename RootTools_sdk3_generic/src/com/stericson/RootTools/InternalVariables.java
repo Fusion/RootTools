@@ -37,8 +37,8 @@ class InternalVariables {
 
 	//Constants
     // Version numbers should be maintained here.
-    protected static String TAG = "RootTools v2.2";
-    protected static int timeout = 10000;
+    protected static String TAG = "RootTools v2.4";
+    protected static int timeout = 5000;
     protected static int FPS = 1;
     protected static int IAG = 2;
     protected static int BBA = 3;
@@ -49,6 +49,7 @@ class InternalVariables {
     
     protected static boolean accessGiven = false;
     protected static boolean nativeToolsReady = false;
+    protected static boolean found = false;
     protected static String[] space;
     protected static String getSpaceFor;
     protected static String busyboxVersion;

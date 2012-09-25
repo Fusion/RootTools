@@ -34,22 +34,68 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import android.os.SystemClock;
+import java.util.concurrent.TimeoutException;
 
 public class Shell {
+	
 	private final Process proc;
 	private final DataInputStream in;
 	private final DataOutputStream out;
 	private final List<Command> commands = new ArrayList<Command>();
 	private boolean close = false;
+	
+	private static String error = "";
 	private static final String token = "F*D^W@#FGF";
-
 	private static Shell rootShell = null;
 	private static Shell shell = null;
 	private static Shell customShell = null;
 
-	public static Shell startRootShell() throws IOException {
+	private Shell(String cmd) throws IOException, TimeoutException {
+
+		RootTools.log("Starting shell: " + cmd);
+
+		proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+		in = new DataInputStream(proc.getInputStream());
+		out = new DataOutputStream(proc.getOutputStream());
+
+        Worker worker = new Worker(proc, in, out);
+        worker.start();
+        
+        try
+        {
+        	worker.join(5000);
+        	
+            if (worker.exit == -911) {
+            	proc.destroy();
+				
+            	throw new TimeoutException(error);
+              
+            }
+            else
+            {
+        		new Thread(input, "Shell Input").start();
+        		new Thread(output, "Shell Output").start();
+            }
+        } 
+        catch(InterruptedException ex) 
+        {
+            worker.interrupt();
+            Thread.currentThread().interrupt();
+            throw new TimeoutException();
+        } 		
+	}
+	
+	public static Shell getOpenShell()
+	{
+		if (customShell != null)
+			return customShell;
+		else if (rootShell != null)
+			return rootShell;
+		else
+			return shell;
+	}
+	
+	public static Shell startRootShell() throws IOException, TimeoutException {
 		if (rootShell == null) {
 			RootTools.log("Starting Root Shell!");
 			String cmd = "su";
@@ -57,13 +103,14 @@ public class Shell {
 			// the attempt fails quickly
 			int retries = 0;
 			while (rootShell == null) {
-				long start = SystemClock.elapsedRealtime();
 				try {
 					rootShell = new Shell(cmd);
 				} catch (IOException e) {
-					long delay = SystemClock.elapsedRealtime() - start;
-					if (delay < 500 || retries++ >= 10)
+					if (retries++ >= 2)
+					{
+						RootTools.log("IOException, could not start shell");
 						throw e;
+					}
 				}
 			}
 		}
@@ -75,7 +122,7 @@ public class Shell {
 		return rootShell;
 	}
 
-	public static Shell startCustomShell(String shellPath) throws IOException {
+	public static Shell startCustomShell(String shellPath) throws IOException, TimeoutException {
 		if (customShell == null) {
 			RootTools.log("Starting Custom Shell!");
 			customShell = new Shell(shellPath);
@@ -86,7 +133,7 @@ public class Shell {
 		return customShell;
 	}
 	
-	public static Shell startShell() throws IOException {
+	public static Shell startShell() throws IOException, TimeoutException {
 		if (shell == null) {
 			RootTools.log("Starting Shell!");
 			shell = new Shell("/system/bin/sh");
@@ -96,11 +143,11 @@ public class Shell {
 		return shell;
 	}
 
-	public static void runRootCommand(Command command) throws IOException {
+	public static void runRootCommand(Command command) throws IOException, TimeoutException {
 		startRootShell().add(command);
 	}
 
-	public static void runCommand(Command command) throws IOException {
+	public static void runCommand(Command command) throws IOException, TimeoutException {
 		startShell().add(command);
 	}
 
@@ -163,35 +210,6 @@ public class Shell {
 			return true;
 		else
 			return false;
-	}
-	
-	public Shell(String cmd) throws IOException {
-
-		RootTools.log("Starting shell: " + cmd);
-
-		proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
-		in = new DataInputStream(proc.getInputStream());
-		out = new DataOutputStream(proc.getOutputStream());
-
-		out.write("echo Started\n".getBytes());
-		out.flush();
-
-		while (true) {
-			String line = in.readLine();
-			if (line == null)
-				throw new EOFException();
-			if ("".equals(line))
-				continue;
-			if ("Started".equals(line))
-				break;
-
-			proc.destroy();
-			throw new IOException("Unable to start shell, unexpected output \""
-					+ line + "\"");
-		}
-
-		new Thread(input, "Shell Input").start();
-		new Thread(output, "Shell Output").start();
 	}
 
 	private Runnable input = new Runnable() {
@@ -274,12 +292,15 @@ public class Shell {
 			if (pos >= 0) {
 				line = line.substring(pos);
 				String fields[] = line.split(" ");
-				int id = Integer.parseInt(fields[1]);
-				if (id == read) {
-					command.exitCode(Integer.parseInt(fields[2]));
-					read++;
-					command = null;
-					continue;
+				if (fields.length >= 2 && fields[1] != null)
+				{
+					int id = Integer.parseInt(fields[1]);
+					if (id == read) {
+						command.setExitCode(Integer.parseInt(fields[2]));
+						read++;
+						command = null;
+						continue;
+					}
 				}
 			}
 			command.output(command.id, line);
@@ -292,7 +313,7 @@ public class Shell {
 		while (read < commands.size()) {
 			if (command == null)
 				command = commands.get(read);
-			command.terminated();
+			command.terminated("Unexpected Termination.");
 			command = null;
 			read++;
 		}
@@ -315,10 +336,12 @@ public class Shell {
 			rootShell = null;
 		if (this == shell)
 			shell = null;
+		if (this == customShell)
+			customShell = null;
 		synchronized (commands) {
 			this.close = true;
 			commands.notifyAll();
-		}
+		}		
 	}
 
 	public int countCommands() {
@@ -333,4 +356,49 @@ public class Shell {
 			command.exitCode();
 		}
 	}
+	
+    protected static class Worker extends Thread 
+    {
+    	public int exit = -911;
+    	
+    	public Process proc;
+    	public DataInputStream in;
+    	public DataOutputStream out;
+	  
+		private Worker(Process proc, DataInputStream in, DataOutputStream out)  {
+			this.proc = proc;
+			this.in = in;
+			this.out = out;
+		}
+		
+		public void run() 
+		{
+			try {
+
+				out.write("echo Started\n".getBytes());
+				out.flush();
+	
+				while (true) {
+					String line = in.readLine();
+					if (line == null) {
+						throw new EOFException();
+					}
+					if ("".equals(line))
+						continue;
+					if ("Started".equals(line))
+					{
+						this.exit = 1;
+						break;
+					}
+					Shell.error = "unkown error occured.";
+				}
+			}
+			catch (Exception e) {
+				if (e.getMessage() != null)
+					Shell.error = e.getMessage();
+				else
+					Shell.error = "unkown error occured.";
+			}
+		}
+    }
 }

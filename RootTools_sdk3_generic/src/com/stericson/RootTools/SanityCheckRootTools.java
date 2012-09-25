@@ -64,6 +64,22 @@ public class SanityCheckRootTools extends Activity {
         }
 
         print("SanityCheckRootTools v " + version + "\n\n");
+        
+        try
+		{
+			Shell.startRootShell();
+		}
+		catch (IOException e2)
+		{
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+		catch (TimeoutException e)
+		{
+            print("[ TIMEOUT EXCEPTION! ]\n");
+			e.printStackTrace();
+		}
+		
         try {
 			if (false == RootTools.isAccessGiven()) {
 			    print("ERROR: No root access to this device.\n");
@@ -112,16 +128,6 @@ public class SanityCheckRootTools extends Activity {
                 return;
             }
             */
-
-            try
-			{
-				Shell.startRootShell();
-			}
-			catch (IOException e2)
-			{
-				// TODO Auto-generated catch block
-				e2.printStackTrace();
-			}
 			
             boolean result;
 
@@ -150,7 +156,7 @@ public class SanityCheckRootTools extends Activity {
             
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getBusyBoxVersion");
             visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking busybox version ]\n");
-            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.getBusyBoxVersion() + " k\n\n");
+            visualUpdate(TestHandler.ACTION_DISPLAY, RootTools.getBusyBoxVersion("/data/data/stericson.busybox.donate/files/bb") + " k\n\n");
 
             try
 			{
@@ -183,19 +189,20 @@ public class SanityCheckRootTools extends Activity {
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing GetBusyBoxapplets");
             try
 			{
-				RootTools.getBusyBoxApplets();
+
+	            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Getting all available Busybox applets ]\n");
+	            for (String applet : RootTools.getBusyBoxApplets("/data/data/stericson.busybox.donate/files/bb"))
+	            {
+	                visualUpdate(TestHandler.ACTION_DISPLAY,  applet + " k\n\n");            	
+	            }
+
 			}
 			catch (Exception e1)
 			{
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
-            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Getting all available Busybox applets ]\n");
-            for (String applet : InternalVariables.results)
-            {
-                visualUpdate(TestHandler.ACTION_DISPLAY,  applet + " k\n\n");            	
-            }
-
+			
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing getFilePermissionsSymlinks");
             Permissions permissions = RootTools.getFilePermissionsSymlinks("/system/bin/busybox");
             visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking busybox permissions and symlink ]\n");

@@ -393,8 +393,11 @@ class InternalMethods
 		
 		try
 		{
-			RootTools.getShell(false).add(command).waitForFinish();
-
+			//Try not to open a new shell if one is open.
+			if (!Shell.isAnyShellOpen())
+				Shell.startShell().add(command).waitForFinish();
+			else
+				Shell.getOpenShell().add(command).waitForFinish();
 		}
 		catch (Exception e)
 		{
@@ -409,16 +412,26 @@ class InternalMethods
 			}
 		}
 		
+		try
+		{
+			RootTools.closeShell(false);
+		} catch (Exception e) {}
+		
 		result.clear();
 		try
 		{
-			RootTools.getShell(true).add(command).waitForFinish();
+			Shell.startRootShell().add(command).waitForFinish();
 		}
 		catch (Exception e)
 		{
 			return false;
 		}
-		for (String line : result)
+		
+		//Avoid concurrent modification...
+		List<String> final_result = new ArrayList<String>();
+		final_result.addAll(result);
+		
+		for (String line : final_result)
 		{
 			if (line.trim().equals(file))
 			{
@@ -574,16 +587,22 @@ class InternalMethods
      * This will return an List of Strings. Each string represents an applet available from BusyBox.
      * <p/>
      * 
+     * @param path
+     *				Path to the busybox binary that you want the list of applets from.
+     *
      * @return <code>List<String></code> a List of strings representing the applets available from
      *         Busybox.
-     * @throws Exception
-     *             if we cannot return the applets available.
+     *         
+     * @return <code>null</code> If we cannot return the list of applets.
      */
-    static List<String> getBusyBoxApplets() throws Exception {
+    static List<String> getBusyBoxApplets(String path) throws Exception {
+    	
+    	if (path != null && !path.endsWith("/"))
+    		path += "/";
     	
     	final List<String> results = new ArrayList<String>();
     	
-    	Command command = new Command(InternalVariables.BBA, "busybox --list")
+    	Command command = new Command(InternalVariables.BBA, path + "busybox --list")
     	{
 
 			@Override
@@ -591,7 +610,7 @@ class InternalMethods
 			{
 				if (id == InternalVariables.BBA)
 				{
-					if (!line.trim().equals(""))
+					if (!line.trim().equals("") && !line.trim().contains("not found"))
 						results.add(line);
 				}				
 			}    		
@@ -600,23 +619,24 @@ class InternalMethods
     	Shell.startRootShell().add(command);
     	command.waitForFinish();
     	
-        if (InternalVariables.results != null) {
-            return InternalVariables.results;
-        } else {
-            throw new Exception();
-        }
+        return results;
     }
     
     /**
      * @return BusyBox version is found, "" if not found.
      */
-    static String getBusyBoxVersion() {
+    static String getBusyBoxVersion(String path) {
+    	
+    	if (!path.equals("") && !path.endsWith("/"))
+    	{
+    		path += "/";
+    	}
+    	
         RootTools.log("Getting BusyBox Version");
-        InternalVariables.busyboxVersion = null;
+        InternalVariables.busyboxVersion = "";
         try {
-        	Command command = new Command(InternalVariables.BBV, "busybox")
+        	Command command = new Command(InternalVariables.BBV, path + "busybox")
         	{
-
 				@Override
 				public void output(int id, String line)
 				{
@@ -637,6 +657,7 @@ class InternalMethods
             RootTools.log("BusyBox was not found, more information MAY be available with Debugging on.");
             return "";
         }
+        
         return InternalVariables.busyboxVersion;
     }
     
@@ -1182,63 +1203,40 @@ class InternalMethods
      * @return true if it contains this util
      */
     public static boolean hasUtil(final String util, final String box) {
-
+    	
+    	InternalVariables.found = false;
+    	
         // only for busybox and toolbox
-        if (!(box.equals("toolbox") || box.equals("busybox"))) {
+        if (!(box.endsWith("toolbox") || box.endsWith("busybox"))) {
             return false;
         }
-
+        
         try {
-            Result result = new Result() {
-                @Override
-                public void process(String line) throws Exception {
-                    // TODO: blocking shell commands like "toolbox watchprops" makes this stuck
-                    // possible fix could be terminating the running process after one line output
-                    if (box.equals("toolbox")) {
+        	
+        	Command command = new Command(0, box.endsWith("toolbox") ? box + " " + util : box + " --list" ) {
+
+				@Override
+				public void output(int id, String line)
+				{
+					if (box.endsWith("toolbox")) {
                         if (line.contains("no such tool")) {
-                            setError(1);
+                        	InternalVariables.found = true;
                         }
-                    } else if (box.equals("busybox")) {
+                    } else if (box.endsWith("busybox")) {
                         // go through all lines of busybox --list
                         if (line.contains(util)) {
                             RootTools.log("Found util!");
-                            setData(1);
+                            InternalVariables.found = true;
                         }
-                    }
-                }
-
-                @Override
-                public void onFailure(Exception ex) {
-                    setError(2);
-                }
-
-                @Override
-                public void onComplete(int diag) {
-                }
-
-                @Override
-                public void processError(String arg0) throws Exception {
-                    getProcess().destroy();
-                }
-
-            };
-            if (box.equals("toolbox")) {
-                RootTools.sendShell(new String[] { "toolbox " + util }, 0, result, false,
-                        InternalVariables.timeout);
-            } else if (box.equals("busybox")) {
-                RootTools.sendShell(new String[] { "busybox --list" }, 0, result, false,
-                        InternalVariables.timeout);
-            }
-
-            if (result.getError() == 0) {
-                // if data has been set process is running
-                if (result.getData() != null) {
-                    RootTools.log("Box contains " + util + " util!");
-                    return true;
-                } else {
-                    RootTools.log("Box does not contain " + util + " util!");
-                    return false;
-                }
+                    }					
+				}
+        		
+        	};
+        	RootTools.getShell(true).add(command).waitForFinish(5000);
+        	
+            if (InternalVariables.found) {
+                RootTools.log("Box contains " + util + " util!");
+                return true;
             } else {
                 RootTools.log("Box does not contain " + util + " util!");
                 return false;
@@ -1288,9 +1286,9 @@ class InternalMethods
      * 
      * @return <code>true</code> if applet is available, false otherwise.
      */
-    public static boolean isAppletAvailable(String Applet) {
+    public static boolean isAppletAvailable(String Applet, String binaryPath) {
         try {
-            for (String applet : getBusyBoxApplets()) {
+            for (String applet : getBusyBoxApplets(binaryPath)) {
                 if (applet.equals(Applet)) {
                     return true;
                 }

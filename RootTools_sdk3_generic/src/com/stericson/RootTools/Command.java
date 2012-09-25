@@ -30,18 +30,26 @@ package com.stericson.RootTools;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.TimeoutException;
 
 public abstract class Command {
 	final String command[];
 	boolean finished = false;
 	int exitCode;
-	int id;
+	int id = 0;
+	int timeout = InternalVariables.timeout;
 
 	public Command(int id, String... command) {
 		this.command = command;
 		this.id = id;
 	}
 	
+	public Command(int id, int timeout, String... command) {
+		this.command = command;
+		this.id = id;
+		this.timeout = timeout;
+	}
+	    
 	public String getCommand() {
 		StringBuilder sb = new StringBuilder();
 		for (int i = 0; i < command.length; i++) {
@@ -63,7 +71,7 @@ public abstract class Command {
 		RootTools.log("Command " + id + "finished.");
 	}
 
-	public void exitCode(int code) {
+	public void setExitCode(int code) {
 		synchronized (this) {
 			exitCode = code;
 			finished = true;
@@ -71,28 +79,57 @@ public abstract class Command {
 			this.notifyAll();
 		}
 	}
+
+	public void terminate(String reason) {
+		try
+		{
+			Shell.closeAll();
+			RootTools.log("Terminating all shells.");
+			terminated(reason);
+		}
+		catch (IOException e) {}
+	}
+
+	public void terminated(String reason) {
+		setExitCode(-1);
+		RootTools.log("Command " + id + " did not finish.");
+	}
 	
-	public void terminated() {
-		exitCode(-1);
-		RootTools.log(getCommand() + " did not finish.");
+	// waits for this command to finish
+	public void waitForFinish(int timeout) throws InterruptedException {
+		synchronized (this) {
+			while (!finished) {
+				this.wait(timeout);
+				
+				if (!finished)
+				{
+					finished = true;
+					RootTools.log("Timeout Exception has occurred.");
+					terminate("Timeout Exception");
+				}
+			}
+		}
 	}
 	
 	// waits for this command to finish and returns the exit code
+	public int exitCode(int timeout) throws InterruptedException {
+		synchronized (this) {
+			waitForFinish(timeout);
+		}
+		return exitCode;
+	}
+	
+	// waits for this command to finish
 	public void waitForFinish() throws InterruptedException {
 		synchronized (this) {
-			while (!finished) {
-				this.wait();
-			}
+			waitForFinish(timeout);
 		}
 	}
 	
 	// waits for this command to finish and returns the exit code
 	public int exitCode() throws InterruptedException {
 		synchronized (this) {
-			while (!finished) {
-				this.wait();
-			}
+			return exitCode(timeout);
 		}
-		return exitCode;
 	}
 }
