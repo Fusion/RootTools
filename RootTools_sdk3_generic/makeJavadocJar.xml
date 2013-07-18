@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="Build Java doc Jar" basedir=".">
+    <target name="package-docs">
+        <jar compress="true" destfile="/Users/Stericson/PStuff/RootTools/Stable/RootTools-javadoc.jar"
+             basedir="/Users/Stericson/PStuff/RootTools/Developmental/doc/"/>
+    </target>
+</project>

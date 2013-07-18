@@ -1,0 +1,8 @@
+.svn/
+.externalToolBuilders/
+.idea/
+META-INF/
+gen/
+lib/
+out/
+doc/

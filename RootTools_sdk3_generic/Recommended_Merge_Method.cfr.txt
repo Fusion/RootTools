@@ -1,0 +1,17 @@
+0. This method is for committers only.
+1. Create a working copy that contains all branches (it's easier)
+2. After committing to Developmental/, cd to ../Stable/RootTools_sdk3_generic/
+3. Cherry-pick! Otherwise you will end up with lots of unwanted material:
+3.1. List changes that you made in Developmental/ and wish to merge:
+     svn log
+3.2. Merge each one manually:
+     svn merge -c <change number> ../../Developmental/RootTools_sdk3_generic
+4. Resolve conflicts, if any:
+   svn resolve --accept theirs-full -R .
+5. Commit!
+   svn commit
+
+Yes, you may need to enter interactive conflict resolution mode.
+That is, rather than accepting "theirs-full.". Good luck.
+
+-Chris.
