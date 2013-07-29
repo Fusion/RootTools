@@ -41,6 +41,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.StatFs;
+import android.util.Log;
 
 import com.stericson.RootTools.Constants;
 import com.stericson.RootTools.RootTools;
@@ -1091,7 +1092,7 @@ public final class RootToolsInternalMethods {
             commandWait(command);
 
             String[] symlink = results.get(0).split(" ");
-            if (symlink[symlink.length - 2].equals("->")) {
+            if (symlink.length > 2 && symlink[symlink.length - 2].equals("->")) {
                 RootTools.log("Symlink found.");
 
                 String final_symlink = "";
@@ -1466,13 +1467,39 @@ public final class RootToolsInternalMethods {
         return i;
     }
 
-    private void commandWait(Command cmd) {
-        synchronized (cmd) {
-            try {
-                cmd.wait();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+    private void commandWait(Command cmd) throws Exception {
+
+        while (!cmd.isFinished()) {
+
+            RootTools.log(Constants.TAG, Shell.getOpenShell().getCommandQueuePositionString(cmd));
+
+            synchronized (cmd) {
+                try {
+                    cmd.wait(RootTools.default_Command_Timeout);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
+
+            if (!cmd.isExecuting() && !cmd.isFinished()) {
+                if (!Shell.isExecuting && !Shell.isReading) {
+                    Log.e(Constants.TAG, "Waiting for a command to be executed in a shell that is not executing and not reading! \n\n Command: " + cmd.getCommand());
+                    Exception e = new Exception();
+                    e.setStackTrace(Thread.currentThread().getStackTrace());
+                    e.printStackTrace();
+                } else if (Shell.isExecuting && !Shell.isReading) {
+                    Log.e(Constants.TAG, "Waiting for a command to be executed in a shell that is executing but not reading! \n\n Command: " + cmd.getCommand());
+                    Exception e = new Exception();
+                    e.setStackTrace(Thread.currentThread().getStackTrace());
+                    e.printStackTrace();
+                } else {
+                    Log.e(Constants.TAG, "Waiting for a command to be executed in a shell that is not reading! \n\n Command: " + cmd.getCommand());
+                    Exception e = new Exception();
+                    e.setStackTrace(Thread.currentThread().getStackTrace());
+                    e.printStackTrace();
+                }
+            }
+
         }
     }
 }

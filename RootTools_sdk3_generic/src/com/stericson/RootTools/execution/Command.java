@@ -30,14 +30,16 @@ import android.os.Message;
 
 import java.io.IOException;
 
+import com.stericson.RootTools.Constants;
 import com.stericson.RootTools.RootTools;
 
 public abstract class Command {
 
+    ExecutionMonitor executionMonitor = null;
     Handler mHandler = null;
     boolean executing = false;
 
-    final String[] command;
+    String[] command = {};
     boolean javaCommand = false;
     Context context = null;
     boolean finished = false;
@@ -45,7 +47,7 @@ public abstract class Command {
     boolean handlerEnabled = true;
     int exitCode = -1;
     int id = 0;
-    int timeout = 50000;
+    int timeout = RootTools.default_Command_Timeout;
 
     public abstract void commandOutput(int id, String line);
     public abstract void commandTerminated(int id, String reason);
@@ -125,6 +127,12 @@ public abstract class Command {
         this.context = context;
     }
 
+    protected void finishCommand() {
+        executing = false;
+        finished = true;
+        this.notifyAll();
+    }
+
     protected void commandFinished() {
         if (!terminated) {
             synchronized (this) {
@@ -140,9 +148,7 @@ public abstract class Command {
                 }
 
                 RootTools.log("Command " + id + " finished.");
-                executing = false;
-                finished = true;
-                this.notifyAll();
+                finishCommand();
             }
         }
     }
@@ -201,7 +207,9 @@ public abstract class Command {
     }
 
     protected void startExecution() {
-        new ExecutionMonitor().start();
+        executionMonitor = new ExecutionMonitor();
+        executionMonitor.setPriority(Thread.MIN_PRIORITY);
+        executionMonitor.start();
         executing = true;
     }
 
@@ -232,9 +240,7 @@ public abstract class Command {
             RootTools.log("Command " + id + " did not finish because it was terminated. Termination reason: " + reason);
             setExitCode(-1);
             terminated = true;
-            this.finished = true;
-            executing = false;
-            this.notifyAll();
+            finishCommand();
         }
     }
 
@@ -263,7 +269,6 @@ public abstract class Command {
                 }
 
                 if (!finished) {
-                    finished = true;
                     RootTools.log("Timeout Exception has occurred.");
                     terminate("Timeout Exception");
                 }

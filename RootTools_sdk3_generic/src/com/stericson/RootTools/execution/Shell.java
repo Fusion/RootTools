@@ -46,6 +46,15 @@ public class Shell {
     private static Shell customShell = null;
 
     private static int shellTimeout = 25000;
+    public static boolean isExecuting = false;
+    public static boolean isReading = false;
+
+    private int maxCommands = 1000;
+    private int read = 0;
+    private int write = 0;
+    private int totalExecuted = 0;
+    private int totalRead = 0;
+    private boolean isCleaning = false;
 
     //private constructor responsible for opening/constructing the shell
     private Shell(String cmd) throws IOException, TimeoutException, RootDeniedException {
@@ -112,8 +121,13 @@ public class Shell {
                  *
                  * input, and output are runnables that the threads execute.
                  */
-                new Thread(input, "Shell Input").start();
-                new Thread(output, "Shell Output").start();
+                Thread si = new Thread(input, "Shell Input");
+                si.setPriority(Thread.NORM_PRIORITY);
+                si.start();
+
+                Thread so = new Thread(output, "Shell Output");
+                so.setPriority(Thread.NORM_PRIORITY);
+                so.start();
             }
         } catch (InterruptedException ex) {
             worker.interrupt();
@@ -127,12 +141,28 @@ public class Shell {
         if (close)
             throw new IllegalStateException(
                     "Unable to add commands to a closed shell");
-        synchronized (commands) {
-            commands.add(command);
-            commands.notifyAll();
+
+        while (isCleaning) {
+            //Don't add commands while cleaning
+            ;
         }
+        commands.add(command);
+
+        notifyThreads();
 
         return command;
+    }
+
+    private void cleanCommands() {
+        isCleaning = true;
+        int toClean = Math.abs(maxCommands - (maxCommands / 3));
+        for (int i = 0; i < toClean; i++) {
+            commands.remove(0);
+        }
+
+        read = commands.size() - 1;
+        write = commands.size() - 1;
+        isCleaning = false;
     }
 
     private void closeQuietly(final Reader input) {
@@ -164,7 +194,7 @@ public class Shell {
              * of the shell to close.
              */
             this.close = true;
-            commands.notifyAll();
+            notifyThreads();
         }
     }
 
@@ -190,6 +220,14 @@ public class Shell {
         closeShell();
         closeRootShell();
         closeCustomShell();
+    }
+
+    public int getCommandQueuePosition(Command cmd) {
+        return commands.indexOf(cmd);
+    }
+
+    public String getCommandQueuePositionString(Command cmd) {
+        return "Command is in position " + getCommandQueuePosition(cmd) + " currently executing command at position " + write;
     }
 
     public static Shell getOpenShell() {
@@ -244,7 +282,6 @@ public class Shell {
     private Runnable input = new Runnable() {
         public void run() {
             try {
-                int write = 0;
                 while (true) {
 
                     synchronized (commands) {
@@ -254,8 +291,16 @@ public class Shell {
                          * case but one that could happen.
                          */
                         while (!close && write >= commands.size()) {
+                            isExecuting = false;
                             commands.wait();
                         }
+                    }
+
+                    if (write >= maxCommands) {
+                        /**
+                         * Clean up the commands, stay neat.
+                         */
+                        cleanCommands();
                     }
 
                     /**
@@ -265,17 +310,20 @@ public class Shell {
                      * the end of the command execution
                      */
                     if (write < commands.size()) {
+                        isExecuting = true;
                         Command cmd = commands.get(write);
                         cmd.startExecution();
                         out.write(cmd.getCommand());
-                        String line = "\necho " + token + " " + write + " $?\n";
+                        String line = "\necho " + token + " " + totalExecuted + " $?\n";
                         out.write(line);
                         out.flush();
                         write++;
+                        totalExecuted++;
                     } else if (close) {
                         /**
                          * close the thread, the shell is closing.
                          */
+                        isExecuting = false;
                         out.write("\nexit 0\n");
                         out.flush();
                         RootTools.log("Closing shell");
@@ -287,10 +335,23 @@ public class Shell {
             } catch (InterruptedException e) {
                 RootTools.log(e.getMessage(), 2, e);
             } finally {
+                write = 0;
                 closeQuietly(out);
             }
         }
     };
+
+    protected void notifyThreads() {
+        Thread t = new Thread() {
+            public void run() {
+                synchronized (commands) {
+                    commands.notifyAll();
+                }
+            }
+        };
+
+        t.start();
+    }
 
     /**
      * Runnable to monitor the responses from the open shell.
@@ -299,10 +360,11 @@ public class Shell {
         public void run() {
             try {
                 Command command = null;
-                int read = 0;
 
                 while (!close) {
+                    isReading = false;
                     String line = in.readLine();
+                    isReading = true;
 
                     /**
                      * If we recieve EOF then the shell closed
@@ -352,11 +414,13 @@ public class Shell {
                             } catch (NumberFormatException e) {
                             }
 
-                            if (id == read) {
+                            if (id == totalRead) {
                                 command.setExitCode(exitCode);
                                 command.commandFinished();
-                                read++;
                                 command = null;
+
+                                read++;
+                                totalRead++;
                                 continue;
                             }
                         }
@@ -383,6 +447,7 @@ public class Shell {
                     read++;
                 }
 
+                read = 0;
 
             } catch (IOException e) {
                 RootTools.log(e.getMessage(), 2, e);

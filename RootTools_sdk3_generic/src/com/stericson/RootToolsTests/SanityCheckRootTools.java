@@ -149,6 +149,13 @@ public class SanityCheckRootTools extends Activity {
 
             boolean result;
 
+            visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing A ton of commands");
+            visualUpdate(TestHandler.ACTION_DISPLAY, "[ Ton of Commands ]\n");
+
+            for (int i = 0; i < 2000; i++) {
+                RootTools.exists("/system/xbin/busybox");
+            }
+
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing Find Binary");
             result = RootTools.isRootAvailable();
             visualUpdate(TestHandler.ACTION_DISPLAY, "[ Checking Root ]\n");
