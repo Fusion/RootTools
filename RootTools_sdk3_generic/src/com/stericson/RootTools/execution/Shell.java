@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
+import android.content.Context;
 import com.stericson.RootTools.RootTools;
 import com.stericson.RootTools.exceptions.RootDeniedException;
 
@@ -152,6 +153,14 @@ public class Shell {
         notifyThreads();
 
         return command;
+    }
+
+    public void useCWD(Context context) throws IOException, TimeoutException, RootDeniedException {
+        add(
+                new CommandCapture(
+                        -1,
+                        false,
+                        "cd " + context.getApplicationInfo().dataDir));
     }
 
     private void cleanCommands() {

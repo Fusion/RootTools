@@ -733,6 +733,29 @@ public final class RootTools {
     }
 
     /**
+     * This method allows you to check whether logging is enabled.
+     * Yes, it has a goofy name, but that's to keep it as short as possible.
+     * After all writing logging calls should be painless.
+     * This method exists to save Android going through the various Java layers
+     * that are traversed any time a string is created (i.e. what you are logging)
+     *
+     * Example usage:
+     * if(islog) {
+     *     StrinbBuilder sb = new StringBuilder();
+     *     // ...
+     *     // build string
+     *     // ...
+     *     log(sb.toString());
+     * }
+     *
+     *
+     * @return true if logging is enabled
+     */
+    public static boolean islog() {
+        return debugMode;
+    }
+
+    /**
      * This method allows you to output debug messages only when debugging is on. This will allow
      * you to add a debug option to your app, which by default can be left off for performance.
      * However, when you need debugging information, a simple switch can enable it and provide you

@@ -17,14 +17,20 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
     public boolean process(Set<? extends TypeElement> typeElements, RoundEnvironment roundEnvironment) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "I was invoked!!!");
 
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
     */
 
+    static String PATH_TO_DX = "~/Projects/android-sdk-macosx/build-tools/18.0.1/dx";
     enum READ_STATE { STARTING, FOUND_ANNOTATION; };
 
     public RootClass(String[] args) throws ClassNotFoundException, NoSuchMethodException,
             IllegalAccessException, InvocationTargetException, InstantiationException {
+
+        // Note: rather than calling System.load("/system/lib/libandroid_runtime.so");
+        // which would leave a bunch of unresolved JNI references,
+        // we are using the 'withFramework' class as a preloader.
+        // So, yeah, russian dolls: withFramework > RootClass > actual method
 
         String className = args[0];
         RootArgs actualArgs = new RootArgs();
@@ -74,11 +80,16 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                         + "RootTools" + File.separator
                         + "containers" + File.separator
                         + "RootClass$RootArgs.class";
+                String rc3 = "com" + File.separator
+                        + "stericson" + File.separator
+                        + "RootTools" + File.separator
+                        + "containers" + File.separator
+                        + "RootClass$AnnotationsFinder";
                 String [] cmd;
                 boolean onWindows = (-1 != System.getProperty("os.name").toLowerCase().indexOf("win"));
                 if(onWindows) {
                     StringBuilder sb = new StringBuilder(
-                            " " + rc1 + " " + rc2
+                            " " + rc1 + " " + rc2 + " " + rc3
                     );
                     for(File file:classFiles) {
                         sb.append(" " + file.getPath());
@@ -97,6 +108,7 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                     al.add("anbuild.jar");
                     al.add(rc1);
                     al.add(rc2);
+                    al.add(rc3);
                     for(File file:classFiles) {
                         al.add(file.getPath());
                     }
@@ -117,7 +129,7 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                 }
                 else {
                     cmd = new String[] {
-                            "/Users/Chris/Projects/android-sdk-macosx/platform-tools/dx",
+                            PATH_TO_DX,
                             "--dex",
                             "--output=anbuild.dex",
                             "anbuild.jar"
@@ -133,6 +145,7 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
         }
 
         protected void lookup(File path, List<File> fileList) {
+            String desourcedPath = path.toString().replace("src/", "");
             File[] files = path.listFiles();
             for(File file:files) {
                 if(file.isDirectory()) {
@@ -142,12 +155,20 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                 }
                 else {
                     if(file.getName().endsWith(".java")) {
-                        if(hasClassAnnotation(file))
-                            fileList.add(
-                                    new File(
-                                            file.getPath()
-                                                    .replace("src/", "")
-                                                    .replace(".java", ".class")));
+                        if(hasClassAnnotation(file)) {
+                            final String fileNamePrefix = file.getName().replace(".java", "");
+                            final File compiledPath = new File(getBuiltPath().toString() + File.separator + desourcedPath);
+                            File[] classAndInnerClassFiles = compiledPath.listFiles(new FilenameFilter() {
+                                @Override
+                                public boolean accept(File dir, String filename) {
+                                    return filename.startsWith(fileNamePrefix);
+                                }
+                            });
+                            for(final File matchingFile:classAndInnerClassFiles) {
+                                fileList.add(new File(desourcedPath + File.separator +  matchingFile.getName()));
+                            }
+
+                        }
                     }
                 }
             }

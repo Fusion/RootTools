@@ -172,8 +172,14 @@ public abstract class Command {
         if(javaCommand) {
             String filePath = context.getFilesDir().getPath();
             for (int i = 0; i < command.length; i++) {
+                /*
+                 * TODO Make withFramework optional for applications
+                 * that do not require access to the fw. -CFR
+                 */
                 sb.append(
-                        "dalvikvm -cp " + filePath + "/anbuild.dex com.stericson.RootTools.containers.RootClass "
+                        "dalvikvm -cp " + filePath + "/anbuild.dex"
+                        + " com.android.internal.util.WithFramework"
+                        + " com.stericson.RootTools.containers.RootClass "
                         + command[i]);
                 sb.append('\n');
             }
