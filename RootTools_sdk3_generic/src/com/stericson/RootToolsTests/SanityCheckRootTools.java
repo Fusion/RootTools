@@ -152,7 +152,7 @@ public class SanityCheckRootTools extends Activity {
             visualUpdate(TestHandler.ACTION_PDISPLAY, "Testing A ton of commands");
             visualUpdate(TestHandler.ACTION_DISPLAY, "[ Ton of Commands ]\n");
 
-            for (int i = 0; i < 2000; i++) {
+            for (int i = 0; i < 100; i++) {
                 RootTools.exists("/system/xbin/busybox");
             }
 

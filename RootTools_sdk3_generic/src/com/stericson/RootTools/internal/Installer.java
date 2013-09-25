@@ -128,8 +128,10 @@ class Installer {
             } finally {
                 if (oss != null) {
                     try {
+                    	oss.flush();
+                    	oss.getFD().sync();
                         oss.close();
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                     }
                 }
             }
@@ -165,7 +167,9 @@ class Installer {
     private void commandWait(Command cmd) {
         synchronized (cmd) {
             try {
-                cmd.wait();
+                if (!cmd.isFinished()) {
+                    cmd.wait(2000);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

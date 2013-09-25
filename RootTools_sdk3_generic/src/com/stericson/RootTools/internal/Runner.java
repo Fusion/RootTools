@@ -69,7 +69,9 @@ public class Runner extends Thread {
     private void commandWait(Command cmd) {
         synchronized (cmd) {
             try {
-                cmd.wait();
+                if (!cmd.isFinished()) {
+                    cmd.wait(2000);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

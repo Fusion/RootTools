@@ -92,35 +92,42 @@ public class Remounter {
         }
         Mount mountPoint = findMountPointRecursive(file);
 
-        RootTools.log(Constants.TAG, "Remounting " + mountPoint.getMountPoint().getAbsolutePath() + " as " + mountType.toLowerCase());
-        final boolean isMountMode = mountPoint.getFlags().contains(mountType.toLowerCase());
+        if (mountPoint != null) {
+            RootTools.log(Constants.TAG, "Remounting " + mountPoint.getMountPoint().getAbsolutePath() + " as " + mountType.toLowerCase());
+            final boolean isMountMode = mountPoint.getFlags().contains(mountType.toLowerCase());
 
-        if (!isMountMode) {
-            //grab an instance of the internal class
-            try {
-                CommandCapture command = new CommandCapture(0,
-                        true,
-                        "busybox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
-                        "toolbox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
-                        "mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
-                        "/system/bin/toolbox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath()
-                );
-                Shell.startRootShell().add(command);
-                commandWait(command);
+            if (!isMountMode) {
+                //grab an instance of the internal class
+                try {
+                    CommandCapture command = new CommandCapture(0,
+                            true,
+                            "busybox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
+                            "toolbox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
+                            "mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath(),
+                            "/system/bin/toolbox mount -o remount," + mountType.toLowerCase() + " " + mountPoint.getDevice().getAbsolutePath() + " " + mountPoint.getMountPoint().getAbsolutePath()
+                    );
+                    Shell.startRootShell().add(command);
+                    commandWait(command);
 
-            } catch (Exception e) {}
+                } catch (Exception e) {}
 
-            mountPoint = findMountPointRecursive(file);
+                mountPoint = findMountPointRecursive(file);
+            }
+
+            RootTools.log(Constants.TAG, mountPoint.getFlags() + " AND " + mountType.toLowerCase());
+            if (mountPoint.getFlags().contains(mountType.toLowerCase())) {
+                RootTools.log(mountPoint.getFlags().toString());
+                return true;
+            } else {
+                RootTools.log(mountPoint.getFlags().toString());
+                return false;
+            }
+        }
+        else {
+            RootTools.log("mount is null, file was: " + file + " mountType was: " + mountType);
         }
 
-        Log.i(Constants.TAG, mountPoint.getFlags() + " AND " + mountType.toLowerCase());
-        if (mountPoint.getFlags().contains(mountType.toLowerCase())) {
-            RootTools.log(mountPoint.getFlags().toString());
-            return true;
-        } else {
-            RootTools.log(mountPoint.getFlags().toString());
-            return false;
-        }
+        return false;
     }
 
     private Mount findMountPointRecursive(String file) {
@@ -147,7 +154,9 @@ public class Remounter {
     private void commandWait(Command cmd) {
         synchronized (cmd) {
             try {
-                cmd.wait();
+                if (!cmd.isFinished()) {
+                    cmd.wait(2000);
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
