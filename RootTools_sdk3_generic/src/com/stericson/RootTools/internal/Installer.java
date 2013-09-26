@@ -28,6 +28,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 
 import com.stericson.RootTools.RootTools;
 import com.stericson.RootTools.execution.Command;
@@ -105,15 +108,17 @@ class Installer {
 
             // Only now can we start creating our actual file
             InputStream iss = context.getResources().openRawResource(sourceId);
+            ReadableByteChannel rfc = Channels.newChannel(iss);
             FileOutputStream oss = null;
             try {
                 oss = new FileOutputStream(mf);
-                byte[] buffer = new byte[4096];
-                int len;
+                FileChannel ofc = oss.getChannel();
+                long pos = 0;
                 try {
-                    while (-1 != (len = iss.read(buffer))) {
-                        oss.write(buffer, 0, len);
-                    }
+					long size = iss.available();
+					while ((pos += ofc.transferFrom(rfc, pos, size
+							- pos)) < size)
+						;
                 } catch (IOException ex) {
                     if (RootTools.debugMode) {
                         Log.e(LOG_TAG, ex.toString());

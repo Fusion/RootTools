@@ -65,6 +65,7 @@ public class Remounter {
         }
         //Make sure that what we are trying to remount is in the mount list.
         boolean foundMount = false;
+
         while (!foundMount) {
             try {
                 for (Mount mount : RootTools.getMounts()) {
@@ -90,9 +91,11 @@ public class Remounter {
                 }
             }
         }
+
         Mount mountPoint = findMountPointRecursive(file);
 
         if (mountPoint != null) {
+
             RootTools.log(Constants.TAG, "Remounting " + mountPoint.getMountPoint().getAbsolutePath() + " as " + mountType.toLowerCase());
             final boolean isMountMode = mountPoint.getFlags().contains(mountType.toLowerCase());
 
@@ -114,13 +117,18 @@ public class Remounter {
                 mountPoint = findMountPointRecursive(file);
             }
 
-            RootTools.log(Constants.TAG, mountPoint.getFlags() + " AND " + mountType.toLowerCase());
-            if (mountPoint.getFlags().contains(mountType.toLowerCase())) {
-                RootTools.log(mountPoint.getFlags().toString());
-                return true;
-            } else {
-                RootTools.log(mountPoint.getFlags().toString());
-                return false;
+            if (mountPoint != null) {
+                RootTools.log(Constants.TAG, mountPoint.getFlags() + " AND " + mountType.toLowerCase());
+                if (mountPoint.getFlags().contains(mountType.toLowerCase())) {
+                    RootTools.log(mountPoint.getFlags().toString());
+                    return true;
+                } else {
+                    RootTools.log(mountPoint.getFlags().toString());
+                    return false;
+                }
+            }
+            else {
+                RootTools.log("mount is null, file was: " + file + " mountType was: " + mountType);
             }
         }
         else {
@@ -133,6 +141,7 @@ public class Remounter {
     private Mount findMountPointRecursive(String file) {
         try {
             ArrayList<Mount> mounts = RootTools.getMounts();
+
             for (File path = new File(file); path != null; ) {
                 for (Mount mount : mounts) {
                     if (mount.getMountPoint().equals(path)) {
@@ -140,14 +149,19 @@ public class Remounter {
                     }
                 }
             }
+
             return null;
+
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            if (RootTools.debugMode) {
+                e.printStackTrace();
+            }
         } catch (Exception e) {
             if (RootTools.debugMode) {
                 e.printStackTrace();
             }
         }
+
         return null;
     }
 
