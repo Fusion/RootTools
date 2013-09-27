@@ -21,7 +21,6 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
     }
     */
 
-    static String PATH_TO_DX = "~/Projects/android-sdk-macosx/build-tools/18.0.1/dx";
     enum READ_STATE { STARTING, FOUND_ANNOTATION; };
 
     public RootClass(String[] args) throws ClassNotFoundException, NoSuchMethodException,
@@ -62,7 +61,7 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
         private final String AVOIDDIRPATH = "stericson" + File.separator + "RootTools" + File.separator;
         private List<File> classFiles;
 
-        public AnnotationsFinder() {
+        public AnnotationsFinder() throws IOException {
             System.out.println("Discovering root class annotations...");
             classFiles = new ArrayList<File>();
             lookup(new File("src"), classFiles);
@@ -84,12 +83,22 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                         + "stericson" + File.separator
                         + "RootTools" + File.separator
                         + "containers" + File.separator
-                        + "RootClass$AnnotationsFinder";
+                        + "RootClass$AnnotationsFinder.class";
+                String rc4 = "com" + File.separator
+                        + "stericson" + File.separator
+                        + "RootTools" + File.separator
+                        + "containers" + File.separator
+                        + "RootClass$AnnotationsFinder$1.class";
+                String rc5 = "com" + File.separator
+                        + "stericson" + File.separator
+                        + "RootTools" + File.separator
+                        + "containers" + File.separator
+                        + "RootClass$AnnotationsFinder$2.class";
                 String [] cmd;
                 boolean onWindows = (-1 != System.getProperty("os.name").toLowerCase().indexOf("win"));
                 if(onWindows) {
                     StringBuilder sb = new StringBuilder(
-                            " " + rc1 + " " + rc2 + " " + rc3
+                            " " + rc1 + " " + rc2 + " " + rc3 + " " + rc4 + " " + rc5
                     );
                     for(File file:classFiles) {
                         sb.append(" " + file.getPath());
@@ -109,6 +118,8 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                     al.add(rc1);
                     al.add(rc2);
                     al.add(rc3);
+                    al.add(rc4);
+                    al.add(rc5);
                     for(File file:classFiles) {
                         al.add(file.getPath());
                     }
@@ -124,24 +135,24 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
                 if(onWindows) {
                     cmd = new String[] {
                             "cmd", "/C",
-                            "dx --dex --output=anbuild.dex anbuild.jar"
+                            "dx --dex --output=res/raw/anbuild.dex "
+                            + builtPath + File.separator + "anbuild.jar"
                     };
                 }
                 else {
                     cmd = new String[] {
-                            PATH_TO_DX,
+                            getPathToDx(),
                             "--dex",
-                            "--output=anbuild.dex",
-                            "anbuild.jar"
+                            "--output=res/raw/anbuild.dex",
+                            builtPath + File.separator + "anbuild.jar"
                     };
                 }
                 ProcessBuilder dexBuilder = new ProcessBuilder(cmd);
-                dexBuilder.directory(builtPath);
                 try {
                     dexBuilder.start().waitFor();
                 } catch (IOException e) {} catch (InterruptedException e) {}
             }
-            System.out.println("All done. ::: Be sure to move anbuild.dex to your project's res/raw/ folder :::");
+            System.out.println("All done. ::: anbuild.dex should now be in your project's res/raw/ folder :::");
         }
 
         protected void lookup(File path, List<File> fileList) {
@@ -208,6 +219,38 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
             return false;
         }
 
+        protected String getPathToDx() throws IOException {
+            String androidHome = System.getenv("ANDROID_HOME");
+            if(null == androidHome) {
+                throw new IOException("Error: you need to set $ANDROID_HOME globally");
+            }
+            String dxPath = null;
+            File[] files = new File(androidHome + File.separator + "build-tools").listFiles();
+            int recentSdkVersion = 0;
+            for(File file:files) {
+                int sdkVersion;
+                String[] sdkVersionBits = file.getName().split("[.]");
+                sdkVersion = Integer.parseInt(sdkVersionBits[0]) * 10000;
+                if(sdkVersionBits.length > 1) {
+                    sdkVersion += Integer.parseInt(sdkVersionBits[1]) * 100;
+                    if(sdkVersionBits.length > 2) {
+                        sdkVersion += Integer.parseInt(sdkVersionBits[2]);
+                    }
+                }
+                if(sdkVersion > recentSdkVersion) {
+                    String tentativePath = file.getAbsolutePath() + File.separator + "dx";
+                    if(new File(tentativePath).exists()) {
+                    recentSdkVersion = sdkVersion;
+                        dxPath = tentativePath;
+                    }
+                }
+            }
+            if(dxPath == null) {
+                throw new IOException("Error: unable to find dx binary in $ANDROID_HOME");
+            }
+            return dxPath;
+        }
+
         protected File getBuiltPath() {
             File foundPath = null;
 
@@ -237,14 +280,15 @@ public class RootClass /* #ANNOTATIONS extends AbstractProcessor */ {
     };
 
     public static void main (String [] args) {
-        if(args.length == 0)
-            new RootClass.AnnotationsFinder();
-        else {
-            try {
-                new RootClass(args);
-            } catch (Exception e) {
-                displayError(e);
+        try {
+            if(args.length == 0) {
+                new RootClass.AnnotationsFinder();
             }
+            else {
+                new RootClass(args);
+            }
+        } catch (Exception e) {
+            displayError(e);
         }
     }
 }
