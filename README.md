@@ -27,3 +27,7 @@ Actions speak louder than words! Contributions are welcome and Git sure makes it
 Thanks for your help!
 
 -Chris.
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/Fusion/roottools/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
